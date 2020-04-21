@@ -1,14 +1,16 @@
 #ifndef DETECTOR_H
 #define DETECTOR_H
 
+#include <QObject>
 #undef slots
 #include "torch/script.h"
 #define slots Q_SLOTS
 #include <opencv2/opencv.hpp>
 #include <string>
 
-class Detector
+class Detector : public QObject
 {
+    Q_OBJECT
 public:
     Detector(std::string modulePath, std::string classNamesPath);
     ~Detector();

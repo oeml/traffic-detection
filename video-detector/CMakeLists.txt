@@ -42,6 +42,8 @@ if(ANDROID)
     videosurface.h
     detector.cpp
     detector.h
+    framedetectionworker.cpp
+    framedetectionworker.h
   )
 else()
   add_executable(video-detector
@@ -52,6 +54,8 @@ else()
     videosurface.h
     detector.cpp
     detector.h
+    framedetectionworker.cpp
+    framedetectionworker.h
   )
 endif()
 

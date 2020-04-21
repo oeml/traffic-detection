@@ -58,6 +58,12 @@ Detector::Detector(std::string modulePath, std::string classNamesPath)
 }
 
 
+Detector::~Detector()
+{
+
+}
+
+
 torch::Tensor Detector::extractResults(torch::Tensor rawPredictions, float confidenceThreshold, float nmsThreshold)
 {
     auto confidenceMask = (rawPredictions.select(2, 4) > confidenceThreshold).to(torch::kF32).unsqueeze(2);

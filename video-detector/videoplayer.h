@@ -3,8 +3,12 @@
 
 #include <QWidget>
 #include <QMediaPlayer>
+#include <QGraphicsScene>
 #include <QLabel>
 #include <QPixmap>
+
+class QAbstractButton;
+class VideoSurface;
 
 class VideoPlayer : public QWidget
 {
@@ -15,10 +19,16 @@ public:
     ~VideoPlayer();
 
 public slots:
-    void forwardVideo(QPixmap frame);
+    void openFile();
+    void play();
+
+private slots:
+    void mediaPlayerStateChanged(QMediaPlayer::State state);
 
 private:
-    QMediaPlayer* m_mediaPlayer;
-    QLabel *label;
+    QMediaPlayer *m_mediaPlayer;
+    QGraphicsScene *m_graphicsScene;
+    VideoSurface *surface;
+    QAbstractButton *m_playButton;
 };
 #endif // VIDEOPLAYER_H
