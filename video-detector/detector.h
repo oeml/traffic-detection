@@ -14,13 +14,15 @@ class Detector : public QObject
 public:
     Detector(std::string modulePath, std::string classNamesPath);
     ~Detector();
-    cv::Mat detect(cv::Mat originalImage);
+    cv::Mat detect(cv::Mat originalImage, int seqNum, int id);
 
 private:
     torch::jit::script::Module m_module;
     std::vector< std::string > m_classNames;
 
     torch::Tensor extractResults(torch::Tensor rawPredictions, float confidenceThreshold, float nmsThreshold);
+
+    torch::Tensor savedResult;
 };
 
 #endif // DETECTOR_H

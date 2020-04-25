@@ -28,7 +28,7 @@ VideoPlayer::VideoPlayer(QWidget *parent)
     m_mediaPlayer->setVideoOutput(surface);
     connect(m_mediaPlayer, &QMediaPlayer::stateChanged, this, &VideoPlayer::mediaPlayerStateChanged);
 
-    connect(surface, SIGNAL(frameReady(QPixmap)), this, SLOT(forwardVideo(QPixmap)));
+    // connect(surface, SIGNAL(frameReady(QPixmap)), this, SLOT(forwardVideo(QPixmap)));
 
     QAbstractButton *openButton = new QPushButton(tr("Open..."));
     connect(openButton, &QPushButton::clicked, this, &VideoPlayer::openFile);
@@ -65,9 +65,11 @@ void VideoPlayer::play()
     case QMediaPlayer::StoppedState:
     case QMediaPlayer::PausedState:
         m_mediaPlayer->play();
+        surface->setPaused(false);
         break;
     case QMediaPlayer::PlayingState:
         m_mediaPlayer->pause();
+        surface->setPaused(true);
         break;
     }
 }

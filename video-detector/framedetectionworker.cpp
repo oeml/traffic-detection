@@ -6,17 +6,18 @@
 #include <QThread>
 #include <QAbstractVideoBuffer>
 
-FrameDetectionWorker::FrameDetectionWorker(QObject *parent) : QObject(parent)
+FrameDetectionWorker::FrameDetectionWorker(Detector *detector, int id, int total, QObject *parent) : QObject(parent)
 {
-    detector = new Detector("/Users/home/Desktop/traffic-detection/traced_model.pt",
-                            "/Users/home/Desktop/traffic-detection/model-python/config/coco.names");
+    this->detector = detector;
+    this->id = id;
+    this->total = total;
 }
 
 void FrameDetectionWorker::doDetection(QVideoFrame frame, int sequenceNumber)
 {
-    // if (sequenceNumber % total != id) return;
+    if (sequenceNumber % total != id) return;
 
-    qDebug() << sequenceNumber;
+    // qDebug() << sequenceNumber;
 
     frame.map(QAbstractVideoBuffer::ReadOnly);
 
@@ -32,15 +33,17 @@ void FrameDetectionWorker::doDetection(QVideoFrame frame, int sequenceNumber)
                 static_cast<size_t>(image.bytesPerLine()));
     cv::Mat mat, dst;
     cv::cvtColor(src, mat, cv::COLOR_BGRA2BGR);
-    mat = detector->detect(mat);
+
+    mat = detector->detect(mat, sequenceNumber, id);
+    // QThread::msleep(100);
+
     cv::cvtColor(mat, dst, cv::COLOR_BGR2BGRA);
     const QImage detection(dst.data,
                            dst.cols, dst.rows,
                            static_cast<int>(dst.step),
                            QImage::Format_ARGB32);
 
-    // QThread::msleep(1000);
-    qDebug() << sequenceNumber << "done";
+    // qDebug() << sequenceNumber << "done";
     frame.unmap();
-    emit frameReady(QPixmap::fromImage(detection), sequenceNumber);
+    emit frameReady(detection.copy(), sequenceNumber);
 }

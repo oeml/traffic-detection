@@ -6,26 +6,42 @@
 #include <QVideoSurfaceFormat>
 #include <QGraphicsPixmapItem>
 
+bool operator<(const SequencedFrame& lhs, const SequencedFrame& rhs)
+{
+    return lhs.seqNum > rhs.seqNum;
+}
+
 VideoSurface::VideoSurface(QGraphicsView *view, QGraphicsPixmapItem *pixmap, QObject *parent)
     : QAbstractVideoSurface(parent)
     , view(view)
     , pixmap(pixmap)
     , imageFormat(QImage::Format_Invalid)
 {
-    FrameDetectionWorker *worker = new FrameDetectionWorker(this);
-    worker->moveToThread(&thread);
+    int nrThreads = QThread::idealThreadCount() / 2;
+    for (int i = 0; i < nrThreads; ++i) {
+        QThread *thread = new QThread;
+        Detector *detector = new Detector("/Users/home/Desktop/traffic-detection/traced_model.pt",
+                                          "/Users/home/Desktop/traffic-detection/model-python/config/coco.names");
+        detector->moveToThread(thread);
+        FrameDetectionWorker *worker = new FrameDetectionWorker(detector, i, nrThreads);
+        worker->moveToThread(thread);
 
-    connect(&thread, &QThread::finished, worker, &QObject::deleteLater);
-    connect(this, &VideoSurface::frameAvailable, worker, &FrameDetectionWorker::doDetection);
-    connect(worker, &FrameDetectionWorker::frameReady, this, &VideoSurface::displayFrame);
+        connect(thread, &QThread::finished, worker, &QObject::deleteLater);
+        connect(this, &VideoSurface::frameAvailable, worker, &FrameDetectionWorker::doDetection);
+        connect(worker, &FrameDetectionWorker::frameReady, this, &VideoSurface::receiveFrame);
+        threads.append(thread);
+        thread->start();
+    }
 
-    thread.start();
+    connect(this, &VideoSurface::frameReady, this, &VideoSurface::displayFrame);
 }
 
 VideoSurface::~VideoSurface()
 {
-    thread.quit();
-    thread.wait();
+    foreach (QThread *thread, threads) {
+        thread->quit();
+        thread->wait();
+    }
 }
 
 QList<QVideoFrame::PixelFormat> VideoSurface::supportedPixelFormats(
@@ -58,13 +74,11 @@ bool VideoSurface::start(const QVideoSurfaceFormat &format)
 
 bool VideoSurface::present(const QVideoFrame &frame)
 {
-    if (frame.isValid()) {
+    if (frame.isValid() && !paused) {
         QVideoFrame clonedFrame(frame);
-        qDebug() << "before emit";
         emit frameAvailable(clonedFrame, frameCounter);
-        qDebug() << "after emit";
+        // qDebug() << "after emit" << frameCounter;
         ++frameCounter;
-        qDebug() << "present returns";
         return true;
     }
 
@@ -72,8 +86,32 @@ bool VideoSurface::present(const QVideoFrame &frame)
 }
 
 
-void VideoSurface::displayFrame(QPixmap frame, int seqNum)
+void VideoSurface::displayFrame(QPixmap frame)
 {
     pixmap->setPixmap(frame);
     view->fitInView(QRectF(0,0,frame.width(),frame.height()),Qt::KeepAspectRatio);
+}
+
+
+void VideoSurface::receiveFrame(QImage frame, int seqNum)
+{
+    // qDebug() << "frame" << seqNum << "received";
+    if (seqNum == currSeqNum + 1) {
+        emit frameReady(QPixmap::fromImage(frame));
+        ++currSeqNum;
+
+        while (!q.empty()) {
+            SequencedFrame nextFrame = q.top();
+            // qDebug() << nextFrame.seqNum << "from queue";
+            if (nextFrame.seqNum == currSeqNum + 1) {
+                emit frameReady(QPixmap::fromImage(nextFrame.frame));
+                ++currSeqNum;
+                q.pop();
+            } else {
+                break;
+            }
+        }
+    } else {
+        q.push(SequencedFrame(frame.copy(), seqNum));
+    }
 }

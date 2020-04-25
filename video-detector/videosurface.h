@@ -3,11 +3,21 @@
 
 #include "detector.h"
 
+#include <queue>
+
 #include <QAbstractVideoSurface>
 #include <QList>
 #include <QPixmap>
 #include <QGraphicsView>
 #include <QThread>
+
+class SequencedFrame {
+public:
+    QImage frame;
+    int seqNum;
+
+    SequencedFrame(QImage frame, int seqNum) : frame(frame), seqNum(seqNum) {};
+};
 
 class VideoSurface : public QAbstractVideoSurface
 {
@@ -21,12 +31,15 @@ public:
     bool start(const QVideoSurfaceFormat &format) override;
     bool present(const QVideoFrame &frame) override;
 
+    void setPaused(bool newVal) { this->paused = newVal; }
+
 public slots:
-    void displayFrame(QPixmap frame, int seqNum);
+    void receiveFrame(QImage frame, int seqNum);
+    void displayFrame(QPixmap frame);
 
 signals:
     void frameAvailable(QVideoFrame frame, int sequenceNumber);
-    // void frameReady(QPixmap frame);
+    void frameReady(QPixmap frame);
 
 private:
     // Detector *detector;
@@ -35,7 +48,12 @@ private:
     QImage::Format imageFormat;
 
     int frameCounter = 0;
-    QThread thread;
+    QList<QThread*> threads;
+
+    bool paused = false;
+
+    int currSeqNum = -1;
+    std::priority_queue<SequencedFrame> q;
 
 };
 

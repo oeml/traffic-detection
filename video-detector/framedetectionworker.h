@@ -12,17 +12,17 @@ class FrameDetectionWorker : public QObject
 {
     Q_OBJECT
 public:
-    explicit FrameDetectionWorker(QObject *parent = nullptr);
-    Detector* getDetector() { return this->detector; }
+    explicit FrameDetectionWorker(Detector *detector, int id = 0, int total = 1, QObject *parent = nullptr);
 
 public slots:
     void doDetection(QVideoFrame frame, int sequenceNumber);
 
 signals:
-    void frameReady(QPixmap frame, int sequenceNumber);
+    void frameReady(QImage frame, int sequenceNumber);
 
 private:
     Detector *detector;
+    int id, total;
 
 };
 

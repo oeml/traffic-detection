@@ -1,5 +1,7 @@
 #include "detector.h"
 
+#include <QDebug>
+
 #define IMAGE_SIZE 416
 #define NR_CLASSES 80
 
@@ -161,7 +163,7 @@ torch::Tensor Detector::extractResults(torch::Tensor rawPredictions, float confi
 }
 
 
-cv::Mat Detector::detect(cv::Mat originalImage)
+cv::Mat Detector::detect(cv::Mat originalImage, int seqNum, int id)
 {
     cv::Mat resizedImage, floatImage;
 
@@ -177,31 +179,38 @@ cv::Mat Detector::detect(cv::Mat originalImage)
     std::vector<torch::jit::IValue> inputs;
     inputs.push_back(imageTensor);
 
-    auto start = std::chrono::high_resolution_clock::now();
-    at::Tensor output = m_module.forward(inputs).toTensor();
-    auto result = extractResults(output, 0.6, 0.4);
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    std::cout << "inference taken : " << duration.count() << " ms" << std::endl;
+    // qDebug() << "detection on" << seqNum;
+    if (seqNum % 5 == id) {
+        // qDebug() << "detecting...";
+        auto start = std::chrono::high_resolution_clock::now();
+        at::Tensor output = m_module.forward(inputs).toTensor();
+        auto result = extractResults(output, 0.6, 0.4);
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        qDebug() << "on frame" << seqNum << "inference taken :" << duration.count() << "ms";
 
-    if (result.dim() == 1) {
-        std::cout << "no object found" << std::endl;
-    } else {
-        int obj_num = result.size(0);
+        if (result.dim() == 1) {
+            // std::cout << "no object found" << std::endl;
+        } else {
+            // int obj_num = result.size(0);
+            // std::cout << obj_num << " objects found" << std::endl;
 
-        std::cout << obj_num << " objects found" << std::endl;
+            float wScale = float(originalImage.cols) / IMAGE_SIZE;
+            float hScale = float(originalImage.rows) / IMAGE_SIZE;
 
-        float wScale = float(originalImage.cols) / IMAGE_SIZE;
-        float hScale = float(originalImage.rows) / IMAGE_SIZE;
+            result.select(1,1).mul_(wScale);
+            result.select(1,2).mul_(hScale);
+            result.select(1,3).mul_(wScale);
+            result.select(1,4).mul_(hScale);
+        }
 
-        result.select(1,1).mul_(wScale);
-        result.select(1,2).mul_(hScale);
-        result.select(1,3).mul_(wScale);
-        result.select(1,4).mul_(hScale);
+        savedResult = result;
+    }
 
-        auto resultAccessor = result.accessor<float, 2>();
+    if (savedResult.dim() != 1) {
+        auto resultAccessor = savedResult.accessor<float, 2>();
 
-        for (int i = 0; i < result.size(0) ; i++)
+        for (int i = 0; i < savedResult.size(0) ; i++)
         {
             int cls = resultAccessor[i][7];
             cv::rectangle(originalImage,
@@ -226,6 +235,6 @@ cv::Mat Detector::detect(cv::Mat originalImage)
         }
     }
 
-    std::cout << "Done" << std::endl;
+    // std::cout << "Done" << std::endl;
     return originalImage;
 }
