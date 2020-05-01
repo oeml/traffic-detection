@@ -1,2 +1,1 @@
-# traffic-detection
-Traffic detection on video
+# Traffic Detection
