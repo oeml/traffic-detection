@@ -44,7 +44,7 @@ if __name__ == "__main__":
     if opt.weights_path.endswith(".weights"):
         model.load_darknet_weights(opt.weights_path)
     else:
-        model.load_state_dict(torch.load(opt.weights_path))
+        model.load_state_dict(torch.load(opt.weights_path, map_location=device))
     model.eval()
     
     dataloader = torch.utils.data.DataLoader(
