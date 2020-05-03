@@ -20,8 +20,8 @@ VideoSurface::VideoSurface(QGraphicsView *view, QGraphicsPixmapItem *pixmap, QOb
     int nrThreads = QThread::idealThreadCount() / 2;
     for (int i = 0; i < nrThreads; ++i) {
         QThread *thread = new QThread;
-        Detector *detector = new Detector("/Users/home/Desktop/traffic-detection/traced-models/adam-100e-16l.pt",
-                                          "/Users/home/Desktop/traffic-detection/yolo-custom/config/custom.names");
+        Detector *detector = new Detector("../traced-models/adam-100e-16l.pt",
+                                          "../yolo-custom/config/custom.names");
         detector->moveToThread(thread);
         FrameDetectionWorker *worker = new FrameDetectionWorker(detector, i, nrThreads);
         worker->moveToThread(thread);
@@ -77,7 +77,6 @@ bool VideoSurface::present(const QVideoFrame &frame)
     if (frame.isValid() && !paused) {
         QVideoFrame clonedFrame(frame);
         emit frameAvailable(clonedFrame, frameCounter);
-        // qDebug() << "after emit" << frameCounter;
         ++frameCounter;
         return true;
     }
@@ -95,14 +94,12 @@ void VideoSurface::displayFrame(QPixmap frame)
 
 void VideoSurface::receiveFrame(QImage frame, int seqNum)
 {
-    // qDebug() << "frame" << seqNum << "received";
     if (seqNum == currSeqNum + 1) {
         emit frameReady(QPixmap::fromImage(frame));
         ++currSeqNum;
 
         while (!q.empty()) {
             SequencedFrame nextFrame = q.top();
-            // qDebug() << nextFrame.seqNum << "from queue";
             if (nextFrame.seqNum == currSeqNum + 1) {
                 emit frameReady(QPixmap::fromImage(nextFrame.frame));
                 ++currSeqNum;

@@ -179,9 +179,7 @@ cv::Mat Detector::detect(cv::Mat originalImage, int seqNum, int id)
     std::vector<torch::jit::IValue> inputs;
     inputs.push_back(imageTensor);
 
-    // qDebug() << "detection on" << seqNum;
     if (seqNum % 5 == id) {
-        // qDebug() << "detecting...";
         auto start = std::chrono::high_resolution_clock::now();
         at::Tensor output = m_module.forward(inputs).toTensor();
         auto result = extractResults(output, 0.6, 0.4);
@@ -189,12 +187,7 @@ cv::Mat Detector::detect(cv::Mat originalImage, int seqNum, int id)
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         qDebug() << "on frame" << seqNum << "inference taken :" << duration.count() << "ms";
 
-        if (result.dim() == 1) {
-            // std::cout << "no object found" << std::endl;
-        } else {
-            // int obj_num = result.size(0);
-            // std::cout << obj_num << " objects found" << std::endl;
-
+        if (result.dim() != 1) {
             float wScale = float(originalImage.cols) / IMAGE_SIZE;
             float hScale = float(originalImage.rows) / IMAGE_SIZE;
 
@@ -235,6 +228,5 @@ cv::Mat Detector::detect(cv::Mat originalImage, int seqNum, int id)
         }
     }
 
-    // std::cout << "Done" << std::endl;
     return originalImage;
 }

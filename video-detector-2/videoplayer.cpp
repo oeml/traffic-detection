@@ -28,8 +28,6 @@ VideoPlayer::VideoPlayer(QWidget *parent)
     m_mediaPlayer->setVideoOutput(surface);
     connect(m_mediaPlayer, &QMediaPlayer::stateChanged, this, &VideoPlayer::mediaPlayerStateChanged);
 
-    // connect(surface, SIGNAL(frameReady(QPixmap)), this, SLOT(forwardVideo(QPixmap)));
-
     QAbstractButton *openButton = new QPushButton(tr("Open..."));
     connect(openButton, &QPushButton::clicked, this, &VideoPlayer::openFile);
 

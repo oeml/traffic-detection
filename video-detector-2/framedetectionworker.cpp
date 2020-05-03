@@ -17,8 +17,6 @@ void FrameDetectionWorker::doDetection(QVideoFrame frame, int sequenceNumber)
 {
     if (sequenceNumber % total != id) return;
 
-    // qDebug() << sequenceNumber;
-
     frame.map(QAbstractVideoBuffer::ReadOnly);
 
     QImage::Format imageFormat = QVideoFrame::imageFormatFromPixelFormat(frame.pixelFormat());
@@ -35,7 +33,6 @@ void FrameDetectionWorker::doDetection(QVideoFrame frame, int sequenceNumber)
     cv::cvtColor(src, mat, cv::COLOR_BGRA2BGR);
 
     mat = detector->detect(mat, sequenceNumber, id);
-    // QThread::msleep(100);
 
     cv::cvtColor(mat, dst, cv::COLOR_BGR2BGRA);
     const QImage detection(dst.data,
@@ -43,7 +40,6 @@ void FrameDetectionWorker::doDetection(QVideoFrame frame, int sequenceNumber)
                            static_cast<int>(dst.step),
                            QImage::Format_ARGB32);
 
-    // qDebug() << sequenceNumber << "done";
     frame.unmap();
     emit frameReady(detection.copy(), sequenceNumber);
 }
