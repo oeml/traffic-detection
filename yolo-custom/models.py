@@ -83,6 +83,7 @@ class YOLOLayer(nn.Module):
         
         self.cell_x = torch.arange(g).repeat(g, 1).view([1, 1, g, g]).type(FloatTensor)
         self.cell_y = torch.arange(g).repeat(g, 1).t().view([1, 1, g, g]).type(FloatTensor)
+
         self.scaled_anchors = FloatTensor([(a_w / self.stride, a_h / self.stride) for a_w, a_h in self.anchors])
         self.anchor_w = self.scaled_anchors[:, 0:1].view((1, self.num_anchors, 1, 1))
         self.anchor_h = self.scaled_anchors[:, 1:2].view((1, self.num_anchors, 1, 1))
@@ -102,8 +103,10 @@ class YOLOLayer(nn.Module):
             .contiguous()
         )
 
+        # we want to constrain the location prediction
         x = torch.sigmoid(prediction[..., 0])
         y = torch.sigmoid(prediction[..., 1])
+        # the same error in small bboxes matters more
         w = prediction[..., 2]
         h = prediction[..., 3]
         pred_conf = torch.sigmoid(prediction[..., 4])
@@ -112,7 +115,7 @@ class YOLOLayer(nn.Module):
         if grid_size != self.grid_size:
             self.compute_grid_offsets(grid_size, cuda=x.is_cuda)
 
-        # Add offset and scale with anchors
+        # Add offset and scale with anchors (cell and anchor based on corresp coordinates, see above)
         pred_boxes = FloatTensor(prediction[..., :4].shape)
         pred_boxes[..., 0] = x.data + self.cell_x
         pred_boxes[..., 1] = y.data + self.cell_y

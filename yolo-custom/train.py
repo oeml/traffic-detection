@@ -47,7 +47,7 @@ if __name__ == "__main__":
     # load weights from checkpoint
     if opt.pretrained_weights:
         if opt.pretrained_weights.endswith(".pth"):
-            model.load_state_dict(torch.load(opt.pretrained_weights))
+            model.load_state_dict(torch.load(opt.pretrained_weights, map_location=device))
         else:
             model.load_darknet_weights(opt.pretrained_weights)
 

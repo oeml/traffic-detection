@@ -109,7 +109,7 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
             invalid = large_overlap & label_match
 
             weights = detections[invalid, 4:5]
-            # Merge overlapping bboxes by order of confidence
+            # Remove overlapping bboxes by order of confidence
             detections[0, :4] = (weights * detections[invalid, :4]).sum(0) / weights.sum()
             keep_boxes += [detections[0]]
             detections = detections[~invalid]
@@ -139,28 +139,33 @@ def build_targets(pred_boxes, pred_cls, target, anchors, ignore_thres):
     target_h = FloatTensor(nr_bboxes, nr_anchors, grid_size, grid_size).fill_(0)
     target_cls = FloatTensor(nr_bboxes, nr_anchors, grid_size, grid_size, nr_classes).fill_(0)
 
-    target_boxes = target[:, 2:6] * grid_size
+    target_boxes = target[:, 2:6] * grid_size  # here adjust to grid
     target_xy_on_grid = target_boxes[:, :2]
     target_wh_on_grid = target_boxes[:, 2:]
     batch_idx, target_labels = target[:, :2].long().t()
     cell_x, cell_y = target_xy_on_grid.t()
     cell_w, cell_h = target_wh_on_grid.t()
-    cell_i, cell_j = target_xy_on_grid.long().t()
+    cell_i, cell_j = target_xy_on_grid.long().t()  # integer indices of cells
     
+    # find what anchor fits bbox the best
     ious = torch.stack([bbox_wh_iou(anchor, target_wh_on_grid) for anchor in anchors])
     best_ious, best_n = ious.max(0)
     
+    # set cell that is responsible for detecting the object
     obj_mask[batch_idx, best_n, cell_j, cell_i] = 1
+    # set noobj to False where iou is greater than threshold
     noobj_mask[batch_idx, best_n, cell_j, cell_i] = 0
     for i, anchor_ious in enumerate(ious.t()):
         noobj_mask[batch_idx[i], anchor_ious > ignore_thres, cell_j[i], cell_i[i]] = 0
 
+    # see YOLO forward
     target_x[batch_idx, best_n, cell_j, cell_i] = cell_x - cell_x.floor()
     target_y[batch_idx, best_n, cell_j, cell_i] = cell_y - cell_y.floor()
     target_w[batch_idx, best_n, cell_j, cell_i] = torch.log(cell_w / anchors[best_n][:, 0] + 1e-16)
     target_h[batch_idx, best_n, cell_j, cell_i] = torch.log(cell_h / anchors[best_n][:, 1] + 1e-16)
     target_cls[batch_idx, best_n, cell_j, cell_i, target_labels] = 1
     
+    # class and coordinate predictions
     class_mask[batch_idx, best_n, cell_j, cell_i] = (pred_cls[batch_idx, best_n, cell_j, cell_i].argmax(-1) == target_labels).float()
     iou_scores[batch_idx, best_n, cell_j, cell_i] = bbox_iou(pred_boxes[batch_idx, best_n, cell_j, cell_i], target_boxes, x1y1x2y2=False)
 
