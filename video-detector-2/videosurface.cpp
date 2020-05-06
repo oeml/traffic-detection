@@ -49,11 +49,8 @@ QList<QVideoFrame::PixelFormat> VideoSurface::supportedPixelFormats(
 {
     Q_UNUSED(type);
     return QList<QVideoFrame::PixelFormat>()
-        << QVideoFrame::Format_RGB32
         << QVideoFrame::Format_ARGB32
-        << QVideoFrame::Format_ARGB32_Premultiplied
-        << QVideoFrame::Format_RGB565
-        << QVideoFrame::Format_RGB555;
+        << QVideoFrame::Format_ARGB32_Premultiplied;
 }
 
 bool VideoSurface::start(const QVideoSurfaceFormat &format)
@@ -77,7 +74,6 @@ bool VideoSurface::present(const QVideoFrame &frame)
     if (frame.isValid() && !paused) {
         QVideoFrame clonedFrame(frame);
         emit frameAvailable(clonedFrame, frameCounter);
-        qDebug() << frameCounter;
         ++frameCounter;
         return true;
     }

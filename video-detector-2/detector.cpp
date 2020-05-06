@@ -5,7 +5,7 @@
 #include <QDebug>
 
 #define IMAGE_SIZE 416
-#define NR_CLASSES 80
+#define NR_CLASSES 5
 
 static cv::Scalar colors[6] = {
     cv::Scalar(255, 0, 0),
@@ -94,18 +94,21 @@ torch::Tensor Detector::extractResults(torch::Tensor rawPredictions, float confi
     int num = 0, i;
     for (i = 0; i < batchSize; ++i) {
         auto currImagePrediction = rawPredictions[i];
+        // take class with largest confidence out of confidence vector
         std::tuple< torch::Tensor, torch::Tensor > maxClasses = torch::max(
             currImagePrediction.slice(1, attrLength, attrLength + NR_CLASSES), 1);
 
-        auto maxObjectness = std::get< 0 >(maxClasses).to(torch::kF32).unsqueeze(1);
+        auto maxConf = std::get< 0 >(maxClasses).to(torch::kF32).unsqueeze(1);
         auto maxClassScore = std::get< 1 >(maxClasses).to(torch::kF32).unsqueeze(1);
 
         // result is n x 7: left x, left y, right x, right y, objectness, class score, class id
-        currImagePrediction = torch::cat({currImagePrediction.slice(1,0,attrLength), maxObjectness, maxClassScore}, 1 );
+        currImagePrediction = torch::cat({currImagePrediction.slice(1,0,attrLength), maxConf, maxClassScore}, 1 );
 
+        // remove bboxes where there's no object
         auto nonzeroes = torch::nonzero(currImagePrediction.select(1,4));
         auto imagePredictionView = currImagePrediction.index_select(0, nonzeroes.squeeze()).view({-1, 7});
 
+        // create list of classes found on image (set-like)
         std::vector< torch::Tensor > imageClasses;
         size_t len = imagePredictionView.size(0);
         for (size_t j = 0; j < len; ++j) {
@@ -126,8 +129,10 @@ torch::Tensor Detector::extractResults(torch::Tensor rawPredictions, float confi
             auto cls = imageClasses[k];
             auto clsMask = imagePredictionView * (imagePredictionView.select(1,6) == cls).to(torch::kF32).unsqueeze(1);
             auto clsMaskNonzeroIndex = torch::nonzero(clsMask.select(1,5)).squeeze();
+            // only take predictions for the class we're currently looking at
             auto imageClassPredictions = imagePredictionView.index_select(0, clsMaskNonzeroIndex).view({-1,7});
 
+            // sort by confidence (in descending order) for nms
             std::tuple< torch::Tensor, torch::Tensor > sortedByConfidence = torch::sort(imageClassPredictions.select(1,4));
             auto sortedByConfidenceIndex = std::get< 1 >(sortedByConfidence);
             imageClassPredictions = imageClassPredictions.index_select(0, sortedByConfidenceIndex.squeeze()).cpu();
@@ -136,6 +141,7 @@ torch::Tensor Detector::extractResults(torch::Tensor rawPredictions, float confi
                 int curr = imageClassPredictions.size(0) - 1 - step;
                 if (curr <= 0) break;  // this is a workaround bc I modify inside the loop
 
+                // remove bboxes where IOU with current bounding box is higher that NMS threshold
                 auto ious = getBoundingBoxIOU(imageClassPredictions[curr].unsqueeze(0),
                                               imageClassPredictions.slice(0, 0, curr));
                 auto iouMask = (ious < nmsThreshold).to(torch::kF32).unsqueeze(1);
@@ -145,6 +151,8 @@ torch::Tensor Detector::extractResults(torch::Tensor rawPredictions, float confi
                 imageClassPredictions = imageClassPredictions.index_select(0, nonzeroes).view({-1, 7});
             }
 
+            // concatenate predictions for this class with previous predictions
+            // can't remember what batchIndex is for
             torch::Tensor batchIndex = torch::ones({imageClassPredictions.size(0), 1}).fill_(i);
             if (!doConcat) {
                 output = torch::cat({batchIndex, imageClassPredictions}, 1);
@@ -184,7 +192,7 @@ cv::Mat Detector::detect(cv::Mat originalImage, int seqNum, int id)
     if (seqNum % 5 == id) {
         auto start = std::chrono::high_resolution_clock::now();
         at::Tensor output = m_module.forward(inputs).toTensor();
-        auto result = extractResults(output, 0.8, 0.4);
+        auto result = extractResults(output, 0.6, 0.4);
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         qDebug() << "on frame" << seqNum << "inference taken :" << duration.count() << "ms";
