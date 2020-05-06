@@ -1,5 +1,7 @@
 #include "detector.h"
 
+#include <iomanip>
+#include <sstream>
 #include <QDebug>
 
 #define IMAGE_SIZE 416
@@ -182,7 +184,7 @@ cv::Mat Detector::detect(cv::Mat originalImage, int seqNum, int id)
     if (seqNum % 5 == id) {
         auto start = std::chrono::high_resolution_clock::now();
         at::Tensor output = m_module.forward(inputs).toTensor();
-        auto result = extractResults(output, 0.6, 0.4);
+        auto result = extractResults(output, 0.8, 0.4);
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         qDebug() << "on frame" << seqNum << "inference taken :" << duration.count() << "ms";
@@ -213,17 +215,20 @@ cv::Mat Detector::detect(cv::Mat originalImage, int seqNum, int id)
                           2);
 
             std::string className = m_classNames[cls];
+            std::stringstream ss;
+            ss << std::fixed << std::setprecision(2) << resultAccessor[i][5] * resultAccessor[i][6];
+            className += " " + ss.str();
             cv::rectangle(originalImage,
-                          cv::Point(resultAccessor[i][1], resultAccessor[i][2] - 35),
-                          cv::Point(resultAccessor[i][1] + className.length() * 19,
+                          cv::Point(resultAccessor[i][1], resultAccessor[i][2] - 17),
+                          cv::Point(resultAccessor[i][1] + className.length() * 10,
                                     resultAccessor[i][2]),
                           colors[cls % 6],
                           cv::FILLED);
             cv::putText(originalImage,
                         className,
-                        cv::Point(resultAccessor[i][1], resultAccessor[i][2] - 10),
+                        cv::Point(resultAccessor[i][1], resultAccessor[i][2] - 5),
                         cv::FONT_HERSHEY_SIMPLEX,
-                        1,
+                        0.5,
                         cv::Scalar(255, 255, 255));
         }
     }

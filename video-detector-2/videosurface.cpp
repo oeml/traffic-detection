@@ -77,6 +77,7 @@ bool VideoSurface::present(const QVideoFrame &frame)
     if (frame.isValid() && !paused) {
         QVideoFrame clonedFrame(frame);
         emit frameAvailable(clonedFrame, frameCounter);
+        qDebug() << frameCounter;
         ++frameCounter;
         return true;
     }

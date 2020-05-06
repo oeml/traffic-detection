@@ -42,7 +42,6 @@ signals:
     void frameReady(QPixmap frame);
 
 private:
-    // Detector *detector;
     QGraphicsView *view;
     QGraphicsPixmapItem *pixmap;
     QImage::Format imageFormat;
